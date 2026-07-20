@@ -3,6 +3,40 @@ import json
 import os
 from datetime import datetime
 
+# Mock vulnerabilities data with code locations
+vulnerabilities = [
+    {
+        'id': 'SNYK-PYTHON-001',
+        'severity': 'high',
+        'title': 'Hardcoded Secret Detected',
+        'description': 'API key exposed in configuration file',
+        'file': 'backend/config/settings.py',
+        'line': 14,
+        'code_snippet': 'API_KEY = "sk-1234567890abcdef"',
+        'remediation': 'Move secrets to environment variables'
+    },
+    {
+        'id': 'SNYK-PYTHON-002',
+        'severity': 'medium',
+        'title': 'SQL Injection Risk',
+        'description': 'SQL query built via string concatenation',
+        'file': 'backend/db/queries.py',
+        'line': 52,
+        'code_snippet': 'query = "SELECT * FROM users WHERE id=" + user_id',
+        'remediation': 'Use parameterized queries or ORM'
+    },
+    {
+        'id': 'SNYK-PYTHON-003',
+        'severity': 'medium',
+        'title': 'Insecure Deserialization',
+        'description': 'Unsafe pickle usage detected',
+        'file': 'backend/utils/cache.py',
+        'line': 9,
+        'code_snippet': 'data = pickle.loads(cache_data)',
+        'remediation': 'Use JSON or MessagePack instead of pickle'
+    }
+]
+
 # Mock metrics data
 metrics = {
     'pipeline': {
@@ -38,6 +72,11 @@ metrics = {
     ]
 }
 
+# Get repository info from environment
+repo = os.getenv('GITHUB_REPOSITORY', 'Nadams777/pipeline1')
+branch = os.getenv('GITHUB_REF_NAME', 'main')
+commit = os.getenv('GITHUB_SHA', 'main')
+
 # Generate Markdown Summary
 markdown_summary = f"""# DevSecOps Pipeline Summary
 
@@ -68,6 +107,27 @@ markdown_summary = f"""# DevSecOps Pipeline Summary
 
 **Scan Status:** {metrics['security']['scan_status'].upper()}
 
+### Vulnerabilities Found:
+
+"""
+
+# Add vulnerabilities with code location links
+for vuln in vulnerabilities:
+    severity_icon = '🔴' if vuln['severity'] == 'high' else '🟠' if vuln['severity'] == 'medium' else '🟡'
+    code_url = f"https://github.com/{repo}/blob/{commit}/{vuln['file']}#L{vuln['line']}"
+    
+    markdown_summary += f"""
+#### {severity_icon} [{vuln['title']}]({code_url})
+- **ID:** {vuln['id']}
+- **Severity:** {vuln['severity'].upper()}
+- **Description:** {vuln['description']}
+- **Location:** [{vuln['file']}:{vuln['line']}]({code_url})
+- **Code:** `{vuln['code_snippet']}`
+- **Fix:** {vuln['remediation']}
+
+"""
+
+markdown_summary += f"""
 ---
 
 ## 📈 Code Quality Metrics
