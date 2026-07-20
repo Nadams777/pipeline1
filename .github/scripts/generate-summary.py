@@ -1,41 +1,26 @@
 #!/usr/bin/env python3
 import json
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
-# Mock vulnerabilities data with code locations
-vulnerabilities = [
-    {
-        'id': 'SNYK-PYTHON-001',
-        'severity': 'high',
-        'title': 'Hardcoded Secret Detected',
-        'description': 'API key exposed in configuration file',
-        'file': 'backend/config/settings.py',
-        'line': 14,
-        'code_snippet': 'API_KEY = "sk-1234567890abcdef"',
-        'remediation': 'Move secrets to environment variables'
-    },
-    {
-        'id': 'SNYK-PYTHON-002',
-        'severity': 'medium',
-        'title': 'SQL Injection Risk',
-        'description': 'SQL query built via string concatenation',
-        'file': 'backend/db/queries.py',
-        'line': 52,
-        'code_snippet': 'query = "SELECT * FROM users WHERE id=" + user_id',
-        'remediation': 'Use parameterized queries or ORM'
-    },
-    {
-        'id': 'SNYK-PYTHON-003',
-        'severity': 'medium',
-        'title': 'Insecure Deserialization',
-        'description': 'Unsafe pickle usage detected',
-        'file': 'backend/utils/cache.py',
-        'line': 9,
-        'code_snippet': 'data = pickle.loads(cache_data)',
-        'remediation': 'Use JSON or MessagePack instead of pickle'
-    }
-]
+# Add scripts directory to path
+sys.path.insert(0, os.path.dirname(__file__))
+
+try:
+    from parse_snyk_results import get_demo_vulnerabilities, parse_snyk_sarif
+except:
+    # Fallback if import fails
+    def get_demo_vulnerabilities():
+        return []
+    def parse_snyk_sarif():
+        return []
+
+# Get vulnerabilities
+vulnerabilities = parse_snyk_sarif()
+if not vulnerabilities:
+    vulnerabilities = get_demo_vulnerabilities()
 
 # Mock metrics data
 metrics = {
@@ -48,10 +33,10 @@ metrics = {
     },
     'security': {
         'findings': {
-            'high': 1,
-            'medium': 2,
-            'low': 0,
-            'total': 3
+            'high': sum(1 for v in vulnerabilities if v.get('severity') == 'HIGH'),
+            'medium': sum(1 for v in vulnerabilities if v.get('severity') == 'MEDIUM'),
+            'low': sum(1 for v in vulnerabilities if v.get('severity') == 'LOW'),
+            'total': len(vulnerabilities)
         },
         'scan_status': 'complete'
     },
@@ -113,17 +98,20 @@ markdown_summary = f"""# DevSecOps Pipeline Summary
 
 # Add vulnerabilities with code location links
 for vuln in vulnerabilities:
-    severity_icon = '🔴' if vuln['severity'] == 'high' else '🟠' if vuln['severity'] == 'medium' else '🟡'
-    code_url = f"https://github.com/{repo}/blob/{commit}/{vuln['file']}#L{vuln['line']}"
+    severity_icon = '🔴' if vuln.get('severity') == 'HIGH' else '🟠' if vuln.get('severity') == 'MEDIUM' else '🟡'
+    file_path = vuln.get('file', 'unknown')
+    line_num = vuln.get('line', 0)
+    code_url = f"https://github.com/{repo}/blob/{commit}/{file_path}#L{line_num}"
     
     markdown_summary += f"""
-#### {severity_icon} [{vuln['title']}]({code_url})
-- **ID:** {vuln['id']}
-- **Severity:** {vuln['severity'].upper()}
-- **Description:** {vuln['description']}
-- **Location:** [{vuln['file']}:{vuln['line']}]({code_url})
-- **Code:** `{vuln['code_snippet']}`
-- **Fix:** {vuln['remediation']}
+#### {severity_icon} [{vuln.get('title', 'Unknown')}]({code_url})
+- **ID:** {vuln.get('id', 'N/A')}
+- **Severity:** {vuln.get('severity', 'UNKNOWN')}
+- **Description:** {vuln.get('description', 'N/A')}
+- **Location:** [{file_path}:{line_num}]({code_url})
+- **Code:** `{vuln.get('code_snippet', 'N/A')}`
+- **CWE:** {vuln.get('cwe', 'N/A')}
+- **Remediation:** {vuln.get('remediation', 'N/A')}
 
 """
 
