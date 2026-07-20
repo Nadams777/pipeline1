@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 from datetime import datetime
 import json
@@ -99,6 +99,68 @@ def get_findings():
         'low': 0,
         'timestamp': datetime.now().isoformat(),
     })
+
+@app.route('/api/pipeline/metrics', methods=['GET'])
+def get_metrics():
+    """Get comprehensive pipeline metrics for dashboard"""
+    stage_phase = PIPELINE_STATE['stagePhase']
+    all_pass = all(p == 'pass' for p in stage_phase)
+    any_running = any(p == 'running' for p in stage_phase)
+    
+    # Calculate completion percentage
+    completed_stages = sum(1 for p in stage_phase if p == 'pass')
+    completion_percent = int((completed_stages / len(stage_phase)) * 100)
+    
+    # Findings data
+    high_findings = 1 if all_pass or stage_phase[1] != 'pending' else 0
+    medium_findings = 2 if all_pass or stage_phase[1] != 'pending' else 0
+    low_findings = 0
+    total_findings = high_findings + medium_findings + low_findings
+    
+    # Code quality metrics (mock data)
+    code_coverage = 85
+    test_pass_rate = 92
+    dependency_health = 78
+    
+    # Build metrics
+    build_time_seconds = 42
+    build_success_rate = 94
+    
+    return jsonify({
+        'pipeline': {
+            'status': 'passed' if all_pass else 'running' if any_running else 'idle',
+            'completion_percent': completion_percent,
+            'stages_completed': completed_stages,
+            'total_stages': len(stage_phase),
+            'is_running': PIPELINE_STATE['running'],
+        },
+        'security': {
+            'findings': {
+                'high': high_findings,
+                'medium': medium_findings,
+                'low': low_findings,
+                'total': total_findings,
+            },
+            'scan_status': 'complete' if stage_phase[1] == 'pass' else 'pending' if stage_phase[1] == 'pending' else 'scanning',
+            'last_scan': '2 hours ago',
+        },
+        'quality': {
+            'code_coverage_percent': code_coverage,
+            'test_pass_rate_percent': test_pass_rate,
+            'dependency_health_percent': dependency_health,
+        },
+        'performance': {
+            'build_time_seconds': build_time_seconds,
+            'build_success_rate_percent': build_success_rate,
+            'avg_deploy_time_seconds': 15,
+        },
+        'timestamp': datetime.now().isoformat(),
+    })
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    """Serve the metrics dashboard HTML"""
+    return render_template('dashboard.html')
 
 @app.route('/api/pipeline/run', methods=['POST'])
 def run_pipeline():
