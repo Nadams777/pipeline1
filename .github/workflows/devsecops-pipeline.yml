@@ -25,7 +25,17 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t pipeline1:${{ github.sha }} .
+      - name: Create zip artifact
+        run: |
+          mkdir -p artifacts
+          zip -r artifacts/pipeline1-${{ github.sha }}.zip . -x ".*" "node_modules/*" ".git/*" "venv/*" "__pycache__/*" "*.egg-info/*"
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline1-build-${{ github.sha }}
+          path: artifacts/
+          retention-days: 30
   sast:
     name: SAST (Snyk)
     runs-on: ubuntu-latest
